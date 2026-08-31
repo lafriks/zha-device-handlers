@@ -316,6 +316,16 @@ async def test_devireg_running_state_served_locally(zigpy_device_from_v2_quirk):
     assert success[running_state.name] == Thermostat.RunningState.Heat_State_On
     assert read_mock.mock_calls[0].args[0] == [local_temperature.id]
 
+    # A failed remote read still serves running_state from the local cache
+    read_mock = mock.AsyncMock(return_value=[foundation.Status.FAILURE])
+    with mock.patch.object(thermostat, "_read_attributes", read_mock):
+        success, failure = await thermostat.read_attributes(
+            [local_temperature.name, running_state.name]
+        )
+
+    assert success[running_state.name] == Thermostat.RunningState.Heat_State_On
+    assert failure[local_temperature.name] == foundation.Status.FAILURE
+
 
 async def test_devireg_write_attributes(zigpy_device_from_v2_quirk):
     """Test the off emulation and the sub-15 degree setpoint clamp workaround."""

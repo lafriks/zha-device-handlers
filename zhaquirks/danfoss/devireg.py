@@ -98,17 +98,27 @@ class DeviThermostatCluster(CustomCluster, Thermostat):
                 else self.RunningState.Idle
             )
         record.value.value = self.RunningState(value)
+        succeeded = [record]
 
-        remaining = [attr for attr in attributes if attr != running_state.id]
-        if not remaining:
-            return [[record]]
+        attrs_to_read = [attr for attr in attributes if attr != running_state.id]
+        if not attrs_to_read:
+            return [succeeded]
 
-        result = await super().read_attributes_raw(
-            remaining, manufacturer=manufacturer, **kwargs
+        results = await super().read_attributes_raw(
+            attrs_to_read, manufacturer=manufacturer, **kwargs
         )
-        if isinstance(result[0], list):
-            result[0].append(record)
-        return result
+        if not isinstance(results[0], list):
+            for attrid in attrs_to_read:
+                succeeded.append(  # noqa: PERF401
+                    foundation.ReadAttributeRecord(
+                        attrid,
+                        results[0],
+                        foundation.TypeValue(),
+                    )
+                )
+        else:
+            succeeded.extend(results[0])
+        return [succeeded]
 
     async def write_attributes(
         self,
