@@ -162,9 +162,11 @@ class DeviThermostatCluster(CustomCluster, Thermostat):
 
 
 class DeviTemperatureMeasurementCluster(CustomCluster, TemperatureMeasurement):
-    """DEVI temperature measurement cluster with the room sensor attribute.
+    """DEVI temperature measurement cluster with room and floor sensor attributes.
 
-    The standard measured_value attribute is the optional floor sensor.
+    The device's standard ``measured_value`` attribute is not usable (never reports a
+    valid value); room/floor temperatures are exposed via manufacturer-specific
+    attributes instead.
     """
 
     class AttributeDefs(TemperatureMeasurement.AttributeDefs):
