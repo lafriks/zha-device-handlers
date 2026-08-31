@@ -9,9 +9,8 @@ protection); the reported system mode stays Heat.
 Manufacturer specific attributes:
     0x0201 - HeaterOn (0x400A): heating relay state, 0 = open, 1 = closed.
         Mirrored into the unimplemented running_state attribute for the HVAC action.
-    0x0402 - RoomTemperature (0x4000): optional room sensor. The standard
-        MeasuredValue attribute is the optional floor sensor. Both report
-        -32768 (int16 non-value) when the sensor is absent.
+    0x0402 - RoomTemperature (0x4000): the built-in room sensor.
+    0x0402 - FloorTemperature (0x4002): the floor sensor.
 
 Broken firmware behavior:
     - The time is never requested by the device, so it is written to the device
@@ -177,6 +176,12 @@ class DeviTemperatureMeasurementCluster(CustomCluster, TemperatureMeasurement):
             access="rp",
             manufacturer_code=DANFOSS_MANUFACTURER_CODE,
         )
+        floor_temperature: Final = ZCLAttributeDef(
+            id=0x4002,
+            type=t.int16s,
+            access="rp",
+            manufacturer_code=DANFOSS_MANUFACTURER_CODE,
+        )
 
 
 (
@@ -208,14 +213,25 @@ class DeviTemperatureMeasurementCluster(CustomCluster, TemperatureMeasurement):
         translation_key="local_temperature",
         fallback_name="Local temperature",
     )
-    # The default temperature entity is the floor sensor; clarify its name.
-    # Matches the ZHA-native entity's legacy unique_id "{ieee}-1-1026" (no suffix).
-    .change_entity_metadata(
+    .sensor(
+        attribute_name=DeviTemperatureMeasurementCluster.AttributeDefs.floor_temperature.name,
+        cluster_id=TemperatureMeasurement.cluster_id,
+        divisor=100,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        unit=UnitOfTemperature.CELSIUS,
+        reporting_config=ReportingConfig(
+            min_interval=60, max_interval=3600, reportable_change=10
+        ),
+        translation_key="local_temperature_floor",
+        fallback_name="Floor temperature",
+    )
+    # measured_value never reports a valid value; prevent the default temperature
+    # entity. Matches the ZHA-native entity's legacy unique_id "{ieee}-1-1026".
+    .prevent_default_entity_creation(
         endpoint_id=1,
         cluster_id=TemperatureMeasurement.cluster_id,
         unique_id_suffix=str(TemperatureMeasurement.cluster_id),
-        new_translation_key="local_temperature_floor",
-        new_fallback_name="Floor temperature",
     )
     .add_to_registry()
 )
