@@ -358,10 +358,16 @@ async def test_devireg_write_attributes(zigpy_device_from_v2_quirk):
         assert written == [{setpoint.id: 2100}]
         sleep_mock.assert_not_called()
 
-        # Setpoint below 15 degrees: 15 degrees written first
+        # Setpoint crossing below 15 degrees: 15 degrees written first
         written.clear()
         await thermostat.write_attributes({setpoint.name: 1200})
         assert written == [{setpoint.id: 1500}, {setpoint.id: 1200}]
+        sleep_mock.assert_awaited_once()
+
+        # Setpoint already below 15 degrees: no workaround
+        written.clear()
+        await thermostat.write_attributes({setpoint.name: 900})
+        assert written == [{setpoint.id: 900}]
         sleep_mock.assert_awaited_once()
 
         # Off is emulated with the minimum setpoint and stays in heat mode
@@ -369,11 +375,19 @@ async def test_devireg_write_attributes(zigpy_device_from_v2_quirk):
         thermostat.update_attribute(min_limit.id, 500)
         await thermostat.write_attributes({system_mode.name: 0x00})
         assert written == [
-            {setpoint.id: 1500},
-            {system_mode.id: Thermostat.SystemMode.Heat, setpoint.id: 500},
+            {system_mode.id: Thermostat.SystemMode.Heat, setpoint.id: 500}
         ]
         assert thermostat.get(system_mode.name) == Thermostat.SystemMode.Heat
         assert thermostat.get(setpoint.name) == 500
+
+        # Off crossing below 15 degrees applies the workaround
+        written.clear()
+        thermostat.update_attribute(setpoint.id, 2000)
+        await thermostat.write_attributes({system_mode.name: 0x00})
+        assert written == [
+            {setpoint.id: 1500},
+            {system_mode.id: Thermostat.SystemMode.Heat, setpoint.id: 500},
+        ]
 
 
 @mock.patch("zigpy.zcl.Cluster.bind", mock.AsyncMock())

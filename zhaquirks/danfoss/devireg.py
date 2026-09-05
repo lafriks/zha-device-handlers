@@ -140,9 +140,13 @@ class DeviThermostatCluster(CustomCluster, Thermostat):
             )
 
         setpoint = attributes.get(occupied_heating_setpoint.name)
-        if setpoint is not None and setpoint < SETPOINT_CLAMP_LIMIT:
-            # Write 15 °C first so old firmware does not clamp the target value;
-            # harmless on fixed firmware
+        current = self.get(occupied_heating_setpoint.name)
+        if (
+            setpoint is not None
+            and setpoint < SETPOINT_CLAMP_LIMIT
+            and (current is None or current >= SETPOINT_CLAMP_LIMIT)
+        ):
+            # Only writes crossing below 15 °C are clamped
             await super().write_attributes(
                 {occupied_heating_setpoint.name: SETPOINT_CLAMP_LIMIT},
                 manufacturer=manufacturer,
